@@ -1,0 +1,21 @@
+/* Brand Color Palette */
+:root {
+	--color-evergreen: #0A3C3C; /* approximated from image (deep teal) */
+	--color-mist: #C9CAC8;
+	--color-dusk: #CDA29A;
+	--color-rosewood: #4B1C16;
+	--color-shell: #FFFFFF;
+	--color-onyx: #040403;
+	--color-positive: var(--color-evergreen);
+	--color-negative: var(--color-rosewood);
+	--color-neutral: var(--color-mist);
+}
+
+body { font-family: system-ui, sans-serif; line-height: 1.4; background: var(--color-shell); color: var(--color-onyx); }
+h1,h2,h3 { font-weight:600; }
+ul { padding-left:1.2rem; }
+
+.card { border:1px solid var(--color-mist); background: #f9f9f9; border-radius:6px; }
+
+/* Chart tooltip overrides (Recharts inline styles win; simple override) */
+.recharts-tooltip-wrapper { filter: drop-shadow(0 2px 4px rgba(0,0,0,0.15)); }

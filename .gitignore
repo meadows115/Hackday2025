@@ -11,5 +11,8 @@ __pycache__/
 *.py[cod]
 .venv/
 
+# SQLite database
+benchmark.db
+
 # Mac
 .AppleDouble
