@@ -1,25 +1,18 @@
 import { listCampaigns } from '@/lib/db';
-import FileUpload from '@/components/FileUpload';
-import MetricsChart from '@/components/MetricsChart';
-import StoryPanel from '@/components/StoryPanel';
-import Recommendations from '@/components/Recommendations';
 import React from 'react';
-import ComparisonClient from '@/components/ComparisonClient';
+import Tabs from '@/components/Tabs';
 
 
 export default async function Page() {
   const campaigns = listCampaigns();
-  const first = campaigns[0];
+  const retailFirst = campaigns.find(c => c.vertical === 'retail');
+  const mediaFirst = campaigns.find(c => c.vertical === 'media');
   return (
     <main style={{ padding: '1rem', fontFamily: 'sans-serif', maxWidth: 960, margin: '0 auto' }}>
       <h1>Benchmark Storyteller</h1>
-      <section style={{ marginTop: '1rem' }}>
-        <h2>Upload Campaign CSV</h2>
-        <FileUpload />
-      </section>
-      <section style={{ marginTop: '2rem' }}>
+      <section style={{ marginTop: '1.5rem' }}>
         <h2>Select & Compare</h2>
-        <ComparisonClient initialCampaignId={first?.id} initialVertical={first?.vertical} />
+        <Tabs retailFirstId={retailFirst?.id} mediaFirstId={mediaFirst?.id} />
       </section>
       <section style={{ marginTop: '2rem' }}>
         <h2>All Campaigns</h2>
@@ -33,3 +26,5 @@ export default async function Page() {
     </main>
   );
 }
+
+// Tabs component moved to client component file components/Tabs.tsx

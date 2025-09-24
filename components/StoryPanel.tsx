@@ -1,7 +1,7 @@
 'use client';
 import React from 'react';
 
-interface Metrics { projectedOpen: number; ctr: number; rpm: number; }
+interface Metrics { projectedOpen: number; ctr: number; rpm: number; type?: string; windowDays?: number | null; }
 interface Deltas { openDiff: number; ctrDiff: number; rpmDiff: number; }
 interface Props { campaign: Metrics; benchmark: Metrics; deltas: Deltas; }
 
@@ -36,6 +36,9 @@ const StoryPanel: React.FC<Props> = ({ campaign, benchmark, deltas }) => {
     sentences.push(`Revenue per thousand trailed (${campaign.rpm.toFixed(2)} vs ${benchmark.rpm.toFixed(2)}).`);
   }
 
+  if (campaign.type === 'triggered' && campaign.windowDays) {
+    sentences.push(`(Measured over a ${campaign.windowDays}-day post-send window for this triggered flow.)`);
+  }
   const summary = sentences.join(' ');
 
   return (

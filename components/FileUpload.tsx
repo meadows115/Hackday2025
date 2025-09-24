@@ -24,7 +24,12 @@ export const FileUpload: React.FC<Props> = ({ onUpload }) => {
       if (!res.ok) {
         throw new Error(json.error || 'Upload failed');
       }
-      setResult(`Inserted ${json.inserted} rows`);
+      if (typeof json.inserted === 'number') {
+        const skipped = json.skippedInvalidVertical || 0;
+        setResult(`Inserted ${json.inserted}/${json.totalProvided} campaigns` + (skipped ? ` (skipped ${skipped} invalid vertical)` : ''));
+      } else {
+        setResult('Upload complete');
+      }
       onUpload?.();
     } catch (err: any) {
       setError(err.message);

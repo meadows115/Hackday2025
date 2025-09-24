@@ -31,7 +31,9 @@ export async function GET(req: Request) {
     campaign: {
       projectedOpen: campaign.projectedOpen,
       ctr: campaign.ctr,
-      rpm: campaign.rpm
+      rpm: campaign.rpm,
+      type: campaign.type,
+      windowDays: campaign.windowDays ?? null
     },
     benchmark: {
       projectedOpen: benchmark.projectedOpen,
