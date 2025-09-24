@@ -1,0 +1,15 @@
+# General
+.DS_Store
+*.log
+
+# Node
+node_modules/
+dist/
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+
+# Mac
+.AppleDouble
