@@ -11,12 +11,15 @@ interface Metrics {
 interface Props {
   campaign: Metrics;
   benchmark: Metrics;
+  adjustedMeta?: { openAdj: number; ctrAdj: number; nhiTotal: number; nhiBenchTotal: number } | null;
+  showAdjusted?: boolean;
 }
 
-const MetricsChart: React.FC<Props> = ({ campaign, benchmark }) => {
+const MetricsChart: React.FC<Props> = ({ campaign, benchmark, adjustedMeta, showAdjusted }) => {
+  const usingAdjusted = showAdjusted && adjustedMeta;
   const rows = [
-    { key: 'open', name: 'Open %', c: campaign.projectedOpen, b: benchmark.projectedOpen },
-    { key: 'ctr', name: 'CTR %', c: campaign.ctr, b: benchmark.ctr },
+    { key: 'open', name: usingAdjusted ? 'Adj Open %' : 'Open %', c: usingAdjusted ? adjustedMeta!.openAdj : campaign.projectedOpen, b: benchmark.projectedOpen },
+    { key: 'ctr', name: usingAdjusted ? 'Adj CTR %' : 'CTR %', c: usingAdjusted ? adjustedMeta!.ctrAdj : campaign.ctr, b: benchmark.ctr },
     { key: 'rpm', name: 'RPM', c: campaign.rpm, b: benchmark.rpm }
   ];
 
@@ -35,14 +38,19 @@ const MetricsChart: React.FC<Props> = ({ campaign, benchmark }) => {
           <YAxis />
           <Tooltip />
           <Legend />
-          <Bar dataKey="campaign" name="Campaign">
+          <Bar dataKey="campaign" name={usingAdjusted ? 'Campaign (Adj)' : 'Campaign'}>
             {data.map((entry, idx) => (
-              <Cell key={`c-${idx}`} fill={entry.better ? 'var(--color-positive)' : 'var(--color-negative)'} />
+              <Cell key={`c-${idx}`} fill={entry.better ? (usingAdjusted ? 'var(--color-ocean)' : 'var(--color-positive)') : (usingAdjusted ? 'var(--color-sun)' : 'var(--color-negative)')} />
             ))}
           </Bar>
           <Bar dataKey="benchmark" name="Benchmark" fill="var(--color-neutral)" />
         </BarChart>
       </ResponsiveContainer>
+      {usingAdjusted && adjustedMeta && (
+        <div style={{ fontSize: 11, marginTop: 4, opacity: 0.8 }}>
+          Adjusted removes estimated automated opens (NHI {adjustedMeta.nhiTotal.toFixed(2)}% vs benchmark {adjustedMeta.nhiBenchTotal.toFixed(2)}%).
+        </div>
+      )}
     </div>
   );
 };

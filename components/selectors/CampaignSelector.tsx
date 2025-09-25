@@ -1,17 +1,18 @@
 'use client';
 import React, { useEffect, useState } from 'react';
 
-interface Campaign { id: number; name: string; vertical: string; type?: 'regular' | 'triggered'; windowDays?: number; }
+interface Campaign { id: number; name: string; vertical: string; type?: 'regular' | 'triggered'; windowDays?: number; sentAt?: string; }
 
 interface Props {
   onChange: (campaignId: number) => void;
   value?: number;
   filterVertical?: 'retail' | 'media';
   filterType?: 'regular' | 'triggered' | 'all';
-  dateRange?: { start: string; end: string };
+  start?: string;
+  end?: string;
 }
 
-const CampaignSelector: React.FC<Props> = ({ onChange, value, filterVertical, filterType = 'all', dateRange }) => {
+const CampaignSelector: React.FC<Props> = ({ onChange, value, filterVertical, filterType = 'all', start, end }) => {
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState('');
@@ -24,8 +25,9 @@ const CampaignSelector: React.FC<Props> = ({ onChange, value, filterVertical, fi
       setLoading(true);
       const params = new URLSearchParams();
       if (filterVertical) params.set('vertical', filterVertical);
-      if (filterType !== 'all') params.set('type', filterType);
-      if (dateRange) { params.set('start', dateRange.start); params.set('end', dateRange.end); }
+      if (filterType && filterType !== 'all') params.set('type', filterType);
+      if (start) params.set('start', start);
+      if (end) params.set('end', end);
       const res = await fetch(`/api/campaigns?${params.toString()}`, { cache: 'no-store' });
       const json = await res.json();
       if (!ignore) {
@@ -38,7 +40,7 @@ const CampaignSelector: React.FC<Props> = ({ onChange, value, filterVertical, fi
     }
     load();
     return () => { ignore = true; };
-  }, [filterVertical, filterType, dateRange?.start, dateRange?.end]);
+  }, [filterVertical, filterType, start, end]);
 
   const filtered = campaigns.filter(c => !query.trim() || c.name.toLowerCase().includes(query.toLowerCase()));
 
@@ -62,7 +64,7 @@ const CampaignSelector: React.FC<Props> = ({ onChange, value, filterVertical, fi
   }
 
   if (loading) return <p>Loading campaigns...</p>;
-  if (!campaigns.length) return <p>No campaigns available.</p>;
+  if (!campaigns.length) return <p>No campaigns in range.</p>;
 
   return (
     <div style={{ position:'relative', minWidth:240 }}>
@@ -86,7 +88,7 @@ const CampaignSelector: React.FC<Props> = ({ onChange, value, filterVertical, fi
                   onMouseEnter={()=> setHighlight(i)}
                   style={{ padding:'0.4rem 0.55rem', cursor:'pointer', background: active ? 'var(--color-evergreen)' : 'transparent', color: active ? 'var(--color-shell)' : 'var(--color-onyx)', fontSize:12, display:'flex', justifyContent:'space-between', gap:8 }}>
                 <span>{labelType} {c.name}{windowInfo}</span>
-                <span style={{ opacity:0.6 }}>{c.id}</span>
+                <span style={{ opacity:0.6 }}>{c.sentAt}</span>
               </li>
             );
           })}
