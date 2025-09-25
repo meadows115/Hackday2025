@@ -22,6 +22,23 @@ export interface BenchmarkRow {
   rpm: number;
 }
 
+// NHI (Non-Human Interactions) domain-level percentages (of total sends or opens) per campaign
+export interface CampaignNhi {
+  campaign_id: number;
+  gmail: number; // percentage points e.g. 1.2 => 1.2%
+  yahoo: number;
+  other: number;
+  total: number; // gmail + yahoo + other (cached)
+}
+
+export interface NhiBenchmarkRow {
+  vertical: string;
+  gmail: number;
+  yahoo: number;
+  other: number;
+  total: number; // gmail + yahoo + other
+}
+
 // Singleton DB connection
 let db: Database.Database | null = null;
 function getDb() {
@@ -53,6 +70,23 @@ function init() {
       type TEXT DEFAULT 'regular',
       windowDays INTEGER,
       sentAt TEXT
+    )`).run();
+
+  // NHI benchmark + per-campaign tables
+  d.prepare(`CREATE TABLE IF NOT EXISTS nhi_benchmarks (
+      vertical TEXT PRIMARY KEY,
+      gmail REAL NOT NULL,
+      yahoo REAL NOT NULL,
+      other REAL NOT NULL,
+      total REAL NOT NULL
+    )`).run();
+  d.prepare(`CREATE TABLE IF NOT EXISTS campaign_nhi (
+      campaign_id INTEGER PRIMARY KEY,
+      gmail REAL NOT NULL,
+      yahoo REAL NOT NULL,
+      other REAL NOT NULL,
+      total REAL NOT NULL,
+      FOREIGN KEY(campaign_id) REFERENCES campaigns(id) ON DELETE CASCADE
     )`).run();
 
   // Lightweight migration: ensure columns type, windowDays exist (older DBs)
@@ -96,6 +130,18 @@ function init() {
       { name: 'Breaking News Alert', subject: 'Major update just in', projectedOpen: 33.2, ctr: 8.1, rpm: 0.68, vertical: 'media', type: 'triggered', windowDays: 3, sentAt: daysAgo(2) }
     ];
     insertCampaigns(dummy);
+  }
+
+  // Seed NHI benchmarks if none
+  const existingNhiBench = d.prepare('SELECT COUNT(*) as c FROM nhi_benchmarks').get() as { c: number };
+  if (existingNhiBench.c === 0) {
+    const nhiSeed: NhiBenchmarkRow[] = [
+      { vertical: 'retail', gmail: 1.4, yahoo: 0.5, other: 0.9, total: 1.4+0.5+0.9 },
+      { vertical: 'media', gmail: 1.1, yahoo: 0.6, other: 1.3, total: 1.1+0.6+1.3 }
+    ];
+    const stmt = d.prepare('INSERT INTO nhi_benchmarks (vertical, gmail, yahoo, other, total) VALUES (@vertical, @gmail, @yahoo, @other, @total)');
+    const insertMany = d.transaction((rows: NhiBenchmarkRow[]) => { for (const r of rows) stmt.run(r); });
+    insertMany(nhiSeed);
   }
 
   // If total campaigns still low, generate additional synthetic data to improve date range coverage.
@@ -157,6 +203,26 @@ function init() {
       });
     }
     insertCampaigns(synthetic);
+  }
+
+  // Ensure each campaign has an NHI row. Use vertical benchmark with jitter.
+  const campaignsWithoutNhi = d.prepare(`SELECT c.id, c.vertical FROM campaigns c LEFT JOIN campaign_nhi n ON n.campaign_id = c.id WHERE n.campaign_id IS NULL`).all() as { id: number; vertical: string }[];
+  if (campaignsWithoutNhi.length) {
+    const nhiBenchRows = d.prepare('SELECT vertical, gmail, yahoo, other FROM nhi_benchmarks').all() as { vertical: string; gmail: number; yahoo: number; other: number }[];
+    const benchMap = new Map(nhiBenchRows.map(r => [r.vertical, r]));
+    const stmt = d.prepare('INSERT INTO campaign_nhi (campaign_id, gmail, yahoo, other, total) VALUES (@campaign_id, @gmail, @yahoo, @other, @total)');
+    const jitter = (base: number) => +(base * (1 + (Math.random()*2-1)*0.25)).toFixed(2); // ±25%
+    const insertMany = d.transaction((rows: { id: number; vertical: string }[]) => {
+      for (const row of rows) {
+        const bench = benchMap.get(row.vertical) || { gmail:1, yahoo:0.5, other:1 };
+        const gmail = Math.max(0, jitter(bench.gmail));
+        const yahoo = Math.max(0, jitter(bench.yahoo));
+        const other = Math.max(0, jitter(bench.other));
+        const total = +(gmail + yahoo + other).toFixed(2);
+        stmt.run({ campaign_id: row.id, gmail, yahoo, other, total });
+      }
+    });
+    insertMany(campaignsWithoutNhi);
   }
 
   // Cleanup: remove any legacy benchmarks / campaigns outside allowed verticals
@@ -238,3 +304,32 @@ export function listVerticals(): string[] {
   const rows = d.prepare('SELECT vertical FROM benchmarks ORDER BY vertical').all() as { vertical: string }[];
   return rows.map(r => r.vertical);
 }
+
+// NHI helpers
+export interface AggregateNhi { gmail: number; yahoo: number; other: number; total: number; count: number; }
+
+export function getCampaignNhi(campaignId: number): CampaignNhi | null {
+  const d = getDb();
+  const row = d.prepare('SELECT campaign_id, gmail, yahoo, other, total FROM campaign_nhi WHERE campaign_id = ?').get(campaignId) as CampaignNhi | undefined;
+  return row || null;
+}
+
+export function getNhiBenchmark(vertical: string): NhiBenchmarkRow | null {
+  const d = getDb();
+  const row = d.prepare('SELECT vertical, gmail, yahoo, other, total FROM nhi_benchmarks WHERE vertical = ?').get(vertical.toLowerCase()) as NhiBenchmarkRow | undefined;
+  return row || null;
+}
+
+export function aggregateNhi(vertical: string, start: string, end: string, type: 'regular' | 'triggered' | 'all' = 'all'): AggregateNhi | null {
+  const d = getDb();
+  const clauses = ['c.vertical = @vertical', 'c.sentAt BETWEEN @start AND @end'];
+  const params: any = { vertical: vertical.toLowerCase(), start, end };
+  if (type !== 'all') { clauses.push('c.type = @type'); params.type = type; }
+  const sql = `SELECT COUNT(*) as count, AVG(n.gmail) as gmail, AVG(n.yahoo) as yahoo, AVG(n.other) as other, AVG(n.total) as total
+               FROM campaigns c JOIN campaign_nhi n ON n.campaign_id = c.id
+               WHERE ${clauses.join(' AND ')}`;
+  const row = d.prepare(sql).get(params) as any;
+  if (!row || row.count === 0) return null;
+  return { gmail: row.gmail, yahoo: row.yahoo, other: row.other, total: row.total, count: row.count };
+}
+

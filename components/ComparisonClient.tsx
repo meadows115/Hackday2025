@@ -4,6 +4,7 @@ import CampaignSelector from '@/components/selectors/CampaignSelector';
 import MetricsChart from '@/components/MetricsChart';
 import StoryPanel from '@/components/StoryPanel';
 import Recommendations from '@/components/Recommendations';
+import NhiPanel from '@/components/NhiPanel';
 
 interface Props {
   vertical: 'retail' | 'media';
@@ -25,14 +26,22 @@ const ComparisonClient: React.FC<Props> = ({ initialCampaignId, vertical, datase
   const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const [aggregate, setAggregate] = React.useState<any | null>(null);
+  const [view, setView] = React.useState<'performance' | 'nhi'>(() => {
+    if (typeof window !== 'undefined') {
+      const sp = new URLSearchParams(window.location.search);
+      const v = sp.get('view');
+      if (v === 'nhi') return 'nhi';
+    }
+    return 'performance';
+  });
 
   React.useEffect(() => {
-    if (!campaignId) return;
+    if (!campaignId || view !== 'performance') return;
     let ignore = false;
     async function run() {
       setLoading(true); setError(null);
       try {
-  const res = await fetch(`/api/compare?campaignId=${campaignId}&vertical=${vertical}`, { cache: 'no-store' });
+        const res = await fetch(`/api/compare?campaignId=${campaignId}&vertical=${vertical}`, { cache: 'no-store' });
         if (!res.ok) throw new Error('Failed to fetch comparison');
         const json = await res.json();
         if (!ignore) setData(json);
@@ -44,17 +53,17 @@ const ComparisonClient: React.FC<Props> = ({ initialCampaignId, vertical, datase
     }
     run();
     return () => { ignore = true; };
-  }, [campaignId, vertical]);
+  }, [campaignId, vertical, view]);
 
-  // Fetch aggregate when vertical / dataset / dateRange changes
+  // Fetch aggregate when vertical / dataset / dateRange changes (performance view only)
   React.useEffect(() => {
-    if (!dateRange) { setAggregate(null); return; }
+    if (!dateRange || view !== 'performance') { setAggregate(null); return; }
     let ignore = false;
     async function run() {
       const params = new URLSearchParams();
       params.set('vertical', vertical);
-  params.set('start', dateRange!.start);
-  params.set('end', dateRange!.end);
+      params.set('start', dateRange!.start);
+      params.set('end', dateRange!.end);
       if (dataset) params.set('type', dataset);
       const res = await fetch(`/api/campaigns?${params.toString()}`, { cache: 'no-store' });
       const json = await res.json();
@@ -62,11 +71,44 @@ const ComparisonClient: React.FC<Props> = ({ initialCampaignId, vertical, datase
     }
     run();
     return () => { ignore = true; };
-  }, [vertical, dataset, dateRange?.start, dateRange?.end]);
+  }, [vertical, dataset, dateRange?.start, dateRange?.end, view]);
+
+  // persist view in URL
+  React.useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const sp = new URLSearchParams(window.location.search);
+    sp.set('view', view);
+    if (campaignId) sp.set('cid', String(campaignId)); else sp.delete('cid');
+    const newUrl = `${window.location.pathname}?${sp.toString()}`;
+    window.history.replaceState(null, '', newUrl);
+  }, [view, campaignId]);
+
+  const performanceContent = !loading && !error && data && campaignId && (
+    <>
+      <MetricsChart campaign={data.campaign} benchmark={data.benchmark} />
+      <StoryPanel campaign={data.campaign} benchmark={data.benchmark} deltas={data.deltas} />
+      <Recommendations deltas={data.deltas} />
+    </>
+  );
 
   return (
     <div style={{ marginTop: '1rem', display: 'grid', gap: '1rem' }}>
-      {aggregate && (
+      <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'flex-end', flexWrap: 'wrap' }}>
+        <label style={{ display: 'flex', flexDirection: 'column', fontSize: 12 }}>Campaign
+          <CampaignSelector value={campaignId} onChange={setCampaignId} filterVertical={vertical} filterType={dataset} dateRange={dateRange} />
+        </label>
+        <div style={{ fontSize: 12, padding: '0.5rem 0' }}>Vertical: <strong>{vertical}</strong></div>
+        {dateRange ? <div style={{ fontSize: 12, padding: '0.5rem 0' }}>Range: {dateRange.start} → {dateRange.end}</div> : <div style={{ fontSize: 12, padding: '0.5rem 0', visibility:'hidden' }}>Range:</div>}
+        {dataset ? <div style={{ fontSize: 12, padding: '0.5rem 0' }}>Dataset: <strong>{dataset}</strong></div> : <div style={{ fontSize: 12, padding: '0.5rem 0', visibility:'hidden' }}>Dataset:</div>}
+        <div style={{ marginLeft: 'auto', display: 'flex', gap: 4, fontSize: 12, alignItems: 'center' }}>
+          <span>View:</span>
+          <select value={view} onChange={e=> setView(e.target.value as any)} style={{ fontSize: 12 }}>
+            <option value="performance">Campaign Performance</option>
+            <option value="nhi">NHI</option>
+          </select>
+        </div>
+      </div>
+      {view === 'performance' && aggregate && (
         <div style={{ fontSize: 12, background: 'var(--color-shell)', border: '1px solid var(--color-mist)', padding: '0.5rem 0.75rem', borderRadius: 4, display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
           <span><strong>Aggregate ({aggregate.count})</strong></span>
           <span>Open: {aggregate.projectedOpen.toFixed(2)}%</span>
@@ -74,24 +116,11 @@ const ComparisonClient: React.FC<Props> = ({ initialCampaignId, vertical, datase
           <span>RPM: {aggregate.rpm.toFixed(2)}</span>
         </div>
       )}
-      <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'flex-end', flexWrap: 'wrap', marginTop: aggregate ? '0.75rem' : undefined }}>
-        <label style={{ display: 'flex', flexDirection: 'column', fontSize: 12 }}>Campaign
-          <CampaignSelector value={campaignId} onChange={setCampaignId} filterVertical={vertical} filterType={dataset} dateRange={dateRange} />
-        </label>
-  <div style={{ fontSize: 12, padding: '0.5rem 0' }}>Vertical: <strong>{vertical}</strong></div>
-  {dateRange ? <div style={{ fontSize: 12, padding: '0.5rem 0' }}>Range: {dateRange.start} → {dateRange.end}</div> : <div style={{ fontSize: 12, padding: '0.5rem 0', visibility:'hidden' }}>Range:</div>}
-  {dataset ? <div style={{ fontSize: 12, padding: '0.5rem 0' }}>Dataset: <strong>{dataset}</strong></div> : <div style={{ fontSize: 12, padding: '0.5rem 0', visibility:'hidden' }}>Dataset:</div>}
-      </div>
-      {loading && <p>Loading comparison...</p>}
+      {loading && view === 'performance' && <p>Loading comparison...</p>}
       {error && <p style={{ color: 'var(--color-negative)' }}>{error}</p>}
-  {!loading && !error && data && campaignId && (
-        <>
-          <MetricsChart campaign={data.campaign} benchmark={data.benchmark} />
-          <StoryPanel campaign={data.campaign} benchmark={data.benchmark} deltas={data.deltas} />
-          <Recommendations deltas={data.deltas} />
-        </>
-      )}
-  {!loading && !error && !campaignId && <p>Select a campaign to view metrics and narrative.</p>}
+      {view === 'performance' && performanceContent}
+      {view === 'performance' && !loading && !error && !campaignId && <p>Select a campaign to view metrics and narrative.</p>}
+      {view === 'nhi' && <NhiPanel campaignId={campaignId} vertical={vertical} dataset={dataset} dateRange={dateRange} />}
     </div>
   );
 };
