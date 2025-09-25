@@ -1,6 +1,7 @@
 'use client';
 import React from 'react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import InfoTooltip from '@/components/InfoTooltip';
 
 interface Props {
   campaign: { gmail: number; yahoo: number; other: number; total: number };
@@ -16,7 +17,10 @@ const NhiChart: React.FC<Props> = ({ campaign, benchmark }) => {
   ];
   return (
     <div style={{ background: 'var(--color-shell)', border: '1px solid var(--color-mist)', borderRadius: 4, padding: '0.75rem' }}>
-      <h3 style={{ margin: '0 0 0.5rem', fontSize: 14 }}>Non-Human Interaction (NHI) vs Benchmark (%)</h3>
+      <h3 style={{ margin: '0 0 0.5rem', fontSize: 14, display:'flex', alignItems:'center', gap:6 }}>
+        Non-Human Interaction (NHI) vs Benchmark (%)
+        <InfoTooltip label="NHI">Low-value or automated opens (security bots, prefetchers) estimated as a percent of total opens/sends. High NHI can deflate real engagement metrics. Domains shown help pinpoint where automation is concentrated.</InfoTooltip>
+      </h3>
       <ResponsiveContainer width="100%" height={260}>
         <BarChart data={data}>
           <XAxis dataKey="name" />
