@@ -14,15 +14,6 @@ export default async function Page() {
         <h2>Select & Compare</h2>
         <Tabs retailFirstId={retailFirst?.id} mediaFirstId={mediaFirst?.id} />
       </section>
-      <section style={{ marginTop: '2rem' }}>
-        <h2>All Campaigns</h2>
-        {campaigns.length === 0 && <p>No campaigns yet.</p>}
-        {campaigns.length > 0 && (
-          <ul>
-            {campaigns.map(c => <li key={c.id}>{c.id}: {c.name} ({c.vertical})</li>)}
-          </ul>
-        )}
-      </section>
     </main>
   );
 }

@@ -97,7 +97,6 @@ const ComparisonClient: React.FC<Props> = ({ initialCampaignId, vertical, datase
         <label style={{ display: 'flex', flexDirection: 'column', fontSize: 12 }}>Campaign
           <CampaignSelector value={campaignId} onChange={setCampaignId} filterVertical={vertical} filterType={dataset} dateRange={dateRange} />
         </label>
-        <div style={{ fontSize: 12, padding: '0.5rem 0' }}>Vertical: <strong>{vertical}</strong></div>
         {dateRange ? <div style={{ fontSize: 12, padding: '0.5rem 0' }}>Range: {dateRange.start} → {dateRange.end}</div> : <div style={{ fontSize: 12, padding: '0.5rem 0', visibility:'hidden' }}>Range:</div>}
         {dataset ? <div style={{ fontSize: 12, padding: '0.5rem 0' }}>Dataset: <strong>{dataset}</strong></div> : <div style={{ fontSize: 12, padding: '0.5rem 0', visibility:'hidden' }}>Dataset:</div>}
         <div style={{ marginLeft: 'auto', display: 'flex', gap: 4, fontSize: 12, alignItems: 'center' }}>
